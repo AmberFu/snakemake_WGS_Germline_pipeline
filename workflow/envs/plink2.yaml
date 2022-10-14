@@ -1,0 +1,6 @@
+channels:
+  - bioconda
+  - bioconda/label/cf201901
+  - conda-forge
+dependencies:
+  - plink2

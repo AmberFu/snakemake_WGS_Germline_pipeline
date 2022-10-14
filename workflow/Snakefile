@@ -1,0 +1,112 @@
+'''
+Po-Ying Fu
+2022/05/13 Create
+2022/09/23 Add Parabricks Germline pipeline
+
+This snakemake file is for Germline pipeline and BAM metrics QC. docker pull 
+
+@Requirement:
+* Docker Image: 
+    + 1. Basic: spashleyfu/ubuntu20_snakemake:bamMetrics
+    + 2. Samtools: spashleyfu/ubuntu20_snakemake:samtools
+    - 3. Repair FASTQ: spashleyfu/debian_stretch_fastq_pair:snakemake
+    + 4. Parabricks v3.6: spashleyfu/parabricksv36_snakemakev76:latest
+    + 5. GATK4: using CONDA?
+    
+* Interactive Testing: 
+    bsub -Is -G compute-jin810 -q general-interactive -n 16 -M 100GB -R 'select[mem>100GB] span[hosts=1] rusage[mem=100GB]' -a 'docker(spashleyfu/ubuntu20_snakemake:bamMetrics)' /bin/bash
+
+* Cluster Testing:
+
+bsub -q general -G compute-jin810 -J snakemake -N -u fup@wustl.edu \
+-R 'affinity[core(5)] span[ptile=6] rusage[mem=25GB]' \
+-g /fup/jg_50 \
+-oo /storage1/fs1/jin810/Active/fup/UDN_CP_download_for_Nahyun/snakemake_RepairFQs_withDocker/logs/test_cluster.out \
+-eo /storage1/fs1/jin810/Active/fup/UDN_CP_download_for_Nahyun/snakemake_RepairFQs_withDocker/logs/test_cluster.err \
+-a 'docker(spashleyfu/ubuntu20_snakemake:bamMetrics)' \
+snakemake --use-conda -j 50 --conda-base-path /opt/miniconda/bin \
+--cluster "bsub -q general -G compute-jin810 -g /fup/jg_50 -a 'docker({params.DOCKER})' -o {params.LSF_LOG} -n {threads} -R 'rusage[rusage[mem={params.mem}] span[hosts=1]]' " \
+-s /storage1/fs1/jin810/Active/fup/UDN_CP_download_for_Nahyun/snakemake_BAM2FQ_germline_sampleQC/workflow/Snakefile
+
+This pipeline is for Convert BAM/CRAM to FASTQ
+STEPs:
+  + 0. Convert BAM/CRAM to FASTQ
+  + 1. Repaired FASTQs
+  - 2. Germline pipeline
+  - 3. Sample QC - pbrun bammetrics (GATK CollectWgsMetrics)
+  - 4. Sample QC - pbrun collectmultiplemetrics (GATK CollectMultipleMetrics)
+  
+SNAKEMAKE_OUTPUT_CACHE=/storage1/fs1/jin810/Active/fup/snakemake_SNAKEMAKE_OUTPUT_CACHE
+SNAKEMAKE_CONDA_PREFIX=/storage1/fs1/jin810/Active/fup/snakemake_SNAKEMAKE_CONDA_PREFIX
+
+'''
+import pandas as pd
+
+# Standard Configuration:
+configfile: "/storage1/fs1/jin810/Active/fup/UDN_CP_download_for_Nahyun/snakemake_BAM2FQ_germline_sampleQC/config/config.yaml"
+
+##### REF #####
+hg38_reference_genome = config['hg38FE']
+KnownSite19443 = config['vcf']['storage1']['ks19443dbsnp']
+KnownSite20267 = config['vcf']['storage1']['ks20267indel']
+KnownSite20211 = config['vcf']['storage1']['ks20211mills']
+ONEKGENOME_SNP = config['vcf']['storage1']['onekgsnp_vcf']
+DBSNP = config['vcf']['storage1']['dbsnp_vcf']
+HAPMAP = config['vcf']['storage1']['hapmap_vcf']
+OMNI = config['vcf']['storage1']['omni_vcf']
+VERIFYBAMID2_SVDPREFIX = config['SVDPrefix']
+LIFTOVER_HG19REF = config['hg19']
+LIFTOVER_HG38TO19_CHAINFILE = config['liftoverChainFile_hg38to19']
+
+##### Modules #####
+include: "rules/common.smk"
+include: "rules/copy_REF2scratch.smk"
+include: "rules/bam2fastq.smk"
+include: "rules/pb_germline.smk"
+include: "rules/pb_bammetrics.smk"
+include: "rules/pb_collectmultiplemetrics.smk"
+include: "rules/QC_verifyBam.smk"
+include: "rules/bam2cram.smk"
+#include: "rules/fastq_pair.smk"
+
+#####################
+#print(SAMPLES)
+
+### For mapping FQ_prfix with Output_name_prefix - prefix_dict
+### For expcted outputlist: FASTQ_PREFIX, GVCFs, PREFIX, BAM_METRICS
+FASTQ_PREFIX = []
+GVCFs = []
+PREFIX = []
+BAM_METRICS = []
+for index, row in SAMPLES.iterrows():
+    FASTQ_PREFIX.append('{}'.format(row['BAMCRAM_STEMNAME']))
+    GVCFs.append('{}.g.vcf'.format(row['prefix']))
+    PREFIX.append(row['prefix'])
+    BAM_METRICS.append('{}_bamMetrics.txt'.format(row['prefix']))
+#####################
+
+
+
+
+##### Target rules #####
+# https://snakemake.readthedocs.io/en/stable/tutorial/basics.html#step-7-adding-a-target-rule
+rule all:
+    input:
+        ### BAM2FASTQ - R1/R2:
+        expand(config['result_folder']+"/gzip_fastq/{filename}_r1.fastq.gz", filename=FASTQ_PREFIX),
+        expand(config['result_folder']+"/gzip_fastq/{filename}_r2.fastq.gz", filename=FASTQ_PREFIX),
+        ### Germline:
+        expand(config['result_folder']+"/pb_germline_FE/{gvcfs}", gvcfs=GVCFs),
+        ### BAM Metrics:
+        expand(config['result_folder']+"/pb_bammetrics/{bamMetrics}", bamMetrics=BAM_METRICS),
+        # ### collectmultiplemetrics:
+        # expand(config['result_folder'] + "/pb_collectmultiplemetrics/QC_Metrics_{prefix}", prefix=PREFIX),
+        ### Verify BamID2:
+        # expand(config['result_folder'] + "/verify_bam2/{prefix}.selfSM", prefix=PREFIX),
+        # expand(config['result_folder'] + "/verify_bam2/{prefix}.Ancestry", prefix=PREFIX),
+        ### BAM2CRAM:
+        expand(config['result_folder'] + "/bam2cram/{prefix}_bam.cram", prefix=PREFIX),
+        ### Index CRAM:
+        expand(config['result_folder'] + "/bam2cram/{prefix}_bam.cram.crai", prefix=PREFIX),
+        # ### TAR:
+        # config['result_folder'] + "/" + config['project_name'] + "_CRAMs.tar.gz",
