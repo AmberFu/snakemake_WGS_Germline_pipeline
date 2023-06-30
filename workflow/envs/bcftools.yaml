@@ -1,0 +1,6 @@
+channels:
+    - soil
+    - bioconda
+    - bioconda/label/cf201901
+dependencies:
+    - bcftools

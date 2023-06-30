@@ -1,0 +1,148 @@
+'''
+Po-Ying Fu
+2022/05/13 Create
+2022/09/23 Add Parabricks Germline pipeline
+2023/01/18 Update pipeline with Parabricks v4.0 and Hail Joint-calling
+2023/03/27 Input TSV as input
+
+This snakemake file is for Jin Lab's WGS Germline pipeline, upstream part, which from FQSTQs to VQSR VCF.
+
+-> Input TSV: Have 3 columns, First is SAMPLE_NAME, second and thrid is FASTQ R1 and R2 respectively.
+
+
+@Requirement:
+* Docker Image: 
+    + 1. Basic: spashleyfu/ubuntu20_snakemake:bamMetrics
+    + 2. Samtools: spashleyfu/ubuntu20_snakemake:samtools, spashleyfu/ubuntu20_snakemake:samtools_1.16 (newest)
+    + 3. Parabricks v4.0: spashleyfu/snakemake_parabricks:latest
+    + 4. GATK4: spashleyfu/ubuntu20_snakemake:gatk4, spashleyfu/ubuntu20_snakemake:gatk4_withR
+    + 5. Hail: spashleyfu/hail_vep_gnomad:latest, spashleyfu/hail_vep_gnomad:0.2.109_104_0.6.4 (newest)
+    
+* Interactive Testing: 
+    bsub -Is -G compute-jin810 -q general-interactive -n 12 -M 12GB -R 'span[hosts=1] rusage[mem=12GB]' -a 'docker(spashleyfu/ubuntu20_snakemake:bamMetrics)' /bin/bash
+
+* Cluster Testing: 
+
+An example, need to change -J, -g and -u value for your own:
+
+bsub -q general -G compute-jin810 -J snakemake \
+-N -u fup@wustl.edu \
+-R 'rusage[mem=32GB]' \
+-g /fup/jg_50 \
+-oo $PWD/logs/cluster.out \
+-eo $PWD/logs/cluster.err \
+-a 'docker(spashleyfu/ubuntu20_snakemake:bamMetrics)' \
+snakemake --use-conda -j 50 \
+--conda-base-path /opt/conda \
+--cluster "bsub -q {params.QUEUE} -G {params.GROUP} -g /fup/jg_150 -J {params.JOBNAME} -a 'docker({params.DOCKER})' -o {params.LSF_LOG} -n {threads} -M {params.MEM} {params.RESOURCE} {params.GPU} " \
+-s $PWD/workflow/Snakefile
+
+This pipeline is for Convert BAM/CRAM to FASTQ
+STEPs:
+  + 0. Concate Raw FQs to Sample FQs
+  + 1. Germline pipeline
+  + 2. Sample QC - GATK CollectWgsMetrics
+  + 3. Sample QC - VerifyBamID2
+  + 4. BAM2CRAM
+  + 5. BGZIP GVCF
+  + 6. Hail Joint-calling
+  + 7. VDS to VCF
+  + 8. GATK VQSR
+  - 9. QC - kinship, sex check, PCA
+  
+SNAKEMAKE_OUTPUT_CACHE=/storage1/fs1/jin810/Active/fup/snakemake_SNAKEMAKE_OUTPUT_CACHE
+SNAKEMAKE_CONDA_PREFIX=/storage1/fs1/jin810/Active/fup/snakemake_SNAKEMAKE_CONDA_PREFIX
+
+'''
+import os
+
+# Standard Configuration:
+#configfile: "/storage1/fs1/jin810/Active/programs/snakemake_germline_QC_Jointcall_VQSR_FQ2VCF_TEST01/config/config.yaml"
+config_path = os.getcwd() + "/config/config.yaml"
+configfile: config_path
+
+
+##### REF #####
+hg38_reference_genome = config['hg38FE']
+KnownSite19443 = config['vcf']['storage1']['ks19443dbsnp']
+KnownSite20267 = config['vcf']['storage1']['ks20267indel']
+KnownSite20211 = config['vcf']['storage1']['ks20211mills']
+ONEKGENOME_SNP = config['vcf']['storage1']['onekgsnp_vcf']
+DBSNP = config['vcf']['storage1']['dbsnp_vcf']
+HAPMAP = config['vcf']['storage1']['hapmap_vcf']
+OMNI = config['vcf']['storage1']['omni_vcf']
+VERIFYBAMID2_SVDPREFIX = config['SVDPrefix']
+LIFTOVER_HG19REF = config['hg19']
+LIFTOVER_HG38TO19_CHAINFILE = config['liftoverChainFile_hg38to19']
+
+##### Modules #####
+include: "rules/common.smk"
+#include: "rules/fastq_pair.smk"
+#include: "rules/concate_rawFQs2sampleFQ.smk"
+#include: "rules/bam2fastq.smk"
+include: "rules/pb_germline.smk"
+#include: "rules/pb_bammetrics.smk"
+include: "rules/QC_gatk_wgsMetrics.smk"
+include: "rules/QC_verifyBam.smk"
+include: "rules/bam2cram.smk"
+include: "rules/mosdepth_BAMmetrics.smk"
+include: "rules/QC_gatk_CollectAlignmentSummaryMetrics.smk"
+include: "rules/QC_gatk_CollectInsertSizeMetrics.smk"
+include: "rules/bgzip_gvcf.smk"
+include: "rules/hail_jointcall_GVCF2VDS.smk"
+include: "rules/hail_VDS2VCF.smk"
+include: "rules/gatk_VQSR.smk"
+
+#####################
+'''
+## From common.smk, we have
+SAMPLE_DICT = {'SAMPLE_NAME_01': {'R1': 'xxx_r1.fastq.gz', 'R2': 'xxx_r2.fastq.gz'},
+               'SAMPLE_NAME_02': {'R1': 'xox_r1.fastq.gz', 'R2': 'xox_r2.fastq.gz'},
+               'SAMPLE_NAME_03': {'R1': 'xxo_r1.fastq.gz', 'R2': 'xxo_r2.fastq.gz'}}
+'''
+## Create prefix:
+PREFIX = list(SAMPLE_DICT.keys())
+
+#####################
+
+
+##### Target rules #####
+# https://snakemake.readthedocs.io/en/stable/tutorial/basics.html#step-7-adding-a-target-rule
+rule all:
+    input:
+        ### Germline:
+        expand(config['result_folder'] + "/pb_germline_FE/{prefix}.g.vcf", prefix=PREFIX),
+        ### BAM Metrics:
+        #expand(config['result_folder'] + "/pb_bammetrics/{prefix}_bamMetrics.txt", prefix=PREFIX),
+        expand(config['result_folder'] + "/QC_gatk_CollectWgsMetrics/{prefix}_bamMetrics.txt", prefix=PREFIX),
+        ### Mosdepth:
+        expand(config['result_folder'] + "/mosdepth_bammetrics/{prefix}.mosdepth.summary.txt", prefix=PREFIX),
+        #config['result_folder'] + "/" +  config['project_name'] + "_all_samples_coverage.tsv",
+        #config['result_folder'] + "/" +  config['project_name'] + "_all_samples_thresholds.tsv",
+        ### Verify BamID2:
+        expand(config['result_folder'] + "/verify_bam2/{prefix}.selfSM", prefix=PREFIX),
+        ### GATK4 CollectAlignmentSummaryMetrics:
+        expand(config['result_folder'] + "/QC_gatk_CollectAlignmentSummaryMetrics/{prefix}_AlignmentSummaryMetrics.txt", prefix=PREFIX),
+        ### GATK4 CollectInsertSizeMetrics:
+        expand(config['result_folder'] + "/QC_gatk_CollectInsertSizeMetrics/{prefix}_InsertSizeMetrics.txt", prefix=PREFIX),
+        ### BAM2CRAM and Index CRAM:
+        expand(config['result_folder'] + "/bam2cram/{prefix}_bam.cram", prefix=PREFIX),
+        expand(config['result_folder'] + "/bam2cram/{prefix}_bam.cram.crai", prefix=PREFIX),
+        
+        ### BGZIP GVCF and Tabix BGZIP GVCF:
+        expand(config['result_folder'] + "/bgzip_gvcf/{prefix}.g.vcf.bgz", prefix=PREFIX),
+        expand(config['result_folder'] + "/bgzip_gvcf/{prefix}.g.vcf.bgz.tbi", prefix=PREFIX),
+        
+        ### Hail Joint-calling:
+        config['result_folder'] + "/hail_joint_calling/"+config['project_name']+".vds",
+        ### Hail VDS2VCF:
+        config['result_folder'] + "/hail_VDS2VCF/"+config['project_name']+".vcf",
+        ### GATK VQSR VCF:
+        config['result_folder'] + "/gatk_VQSR/"+config['project_name']+"_VQSR.vcf.bgz",
+        config['result_folder'] + "/gatk_VQSR/"+config['project_name']+"_VQSR.vcf.bgz.tbi",
+        ### Hail QC Annotation - Sex check, kinship, PCA
+        ### Hail Functional annotation
+        ### PLINK impute sex:
+        #config['result_folder'] + "/plink_sexcheck/" + config['project_name'] + "_plink_sexcheck3.sexcheck",
+        
+        

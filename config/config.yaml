@@ -1,0 +1,304 @@
+#################################
+### You should change this part:
+#################################
+### Project VARs
+project_name: NIST_AshkenazimTrio_pipeline_benchmark
+
+### INPUT TSV
+#tsv: /storage1/fs1/jin810/Active/programs/snakemake_germline_QC_Jointcall_VQSR_FQ2VCF_TEST01/config/sample_example_wes.tsv
+tsv: /storage1/fs1/jin810/Active/programs/snakemake_germline_QC_Jointcall_VQSR_FQ2VCF_TEST01/config/sample_example_wgs_trio.tsv
+
+## OUTPUTs
+logs_folder: /storage1/fs1/jin810/Active/programs/snakemake_germline_QC_Jointcall_VQSR_FQ2VCF_TEST01/logs
+result_folder: /storage1/fs1/jin810/Active/programs/snakemake_germline_QC_Jointcall_VQSR_FQ2VCF_TEST01/results
+
+##############################################
+### Do not change this part if not necessary:
+##############################################
+platform: ILLUMINA
+gpuModel: TeslaV100_SXM2_32GB
+SCRATCH1_pbTemp: /scratch1/fs1/jin810/pb_runs_scratch/parabricks_germline_temp
+ACTIVE_TMP: /storage1/fs1/jin810/Active/fup/snakemake_SNAKEMAKE_TMPDIR
+
+### General Queue vs Subscription Queue
+general_queue: "general"
+general_compute_group: "compute-jin810"
+subscription_queue: "subscription"
+subscription_compute_group: "compute-jin810-t2"
+subscription_sla: "jin810_t2"
+
+# REF:
+# REF from WUSTL MGI:
+hg38bga: /storage1/fs1/bga/Active/gmsroot/gc2560/core/model_data/2887491634/build21f22873ebe0486c8e6f69c15435aa96/all_sequences.fa
+hg38ref: /scratch1/fs1/jin810/references/gms_hg38_model2887491634_build21f22873ebe0486c8e6f69c15435aa96/all_sequences.fa
+# REF from GATK resource bundle (FE):
+hg38FE_prefix: /storage1/fs1/jin810/Active/references/Homo_sapiens_assembly38.
+hg38FE: /storage1/fs1/jin810/Active/references/Homo_sapiens_assembly38.fasta
+hg38FE_scratch: /scratch1/fs1/jin810/references/Homo_sapiens_assembly38.fasta
+hg38FE_scratch_dir: /scratch1/fs1/jin810/references
+hg19: /storage1/fs1/jin810/Active/references/Homo_sapiens_assembly19.fasta
+
+# liftover:
+liftoverChainFile_hg38to19: /storage1/fs1/jin810/Active/references/UCSC_chain_file/hg38ToHg19.over.chain.gz
+
+# BamMetrics:
+combindBamMetrics_script: /storage1/fs1/jin810/Active/programs/mergeBamMetrics.py
+
+# VerifyBamID2:
+SVDPrefix: /storage1/fs1/jin810/Active/references/VerifyBamID2_ref/1000g.phase3.100k.b38.vcf.gz.dat
+
+# mosdepth:
+capture_bed: /storage1/fs1/jin810/Active/Neuropathy_WGS_2021May/snakemake_BAMmetrics_mosdepth/capture_hg38_main_chromosome.bed
+
+# KNOWN_SITE:
+vcf:
+    gms:
+        omni_vcf: /storage1/fs1/bga/Active/gmsroot/gc2709/info/production_reference_GRCh38DH/accessory_vcf/omni25-ld-pruned-20000-2000-0.5-annotated.wchr.sites_only.b38.autosomes_only.vcf.gz
+        dbsnp_vcf: /storage1/fs1/bga/Active/gmsroot/gc2560/core/build_merged_alignments/detect-variants--linus2112.gsc.wustl.edu-jwalker-19443-e48c595a620a432c93e8dd29e4af64f2/snvs.hq.vcf.gz
+        known_indels: /storage1/fs1/bga/Active/gmsroot/gc2560/core/build_merged_alignments/detect-variants--linus2112.gsc.wustl.edu-jwalker-20267-00cb8ff552914c17ad66d86031e10d30/indels.hq.vcf.gz
+        mills: /storage1/fs1/bga/Active/gmsroot/gc2560/core/build_merged_alignments/detect-variants--linus2112.gsc.wustl.edu-jwalker-20211-26b393cc7ab04120ac68cc2cbd4a15df/indels.hq.vcf.gz
+    storage1:
+        dbsnp_vcf: /storage1/fs1/jin810/Active/known_sites/resources-broad-hg38-v0-Homo_sapiens_assembly38.dbsnp138.vcf.gz
+        omni_vcf: /storage1/fs1/jin810/Active/known_sites/1000G_omni2.5.hg38.vcf.gz
+        onekgsnp_vcf: /storage1/fs1/jin810/Active/known_sites/1000G_phase1.snps.high_confidence.hg38.vcf.gz
+        hapmap_vcf: /storage1/fs1/jin810/Active/known_sites/hapmap_3.3.hg38.vcf.gz
+        mills: /storage1/fs1/jin810/Active/known_sites/resources-broad-hg38-v0-Mills_and_1000G_gold_standard.indels.hg38.vcf.gz
+        axiomPoly: /storage1/fs1/jin810/Active/known_sites/Axiom_Exome_Plus.genotypes.all_populations.poly.hg38.vcf.gz
+        ks19443dbsnp: /storage1/fs1/jin810/Active/known_sites/BGA_KNOWNSITE_19443_dbsnp_snvs.hq.vcf.gz
+        ks20211mills: /storage1/fs1/jin810/Active/known_sites/BGA_KNOWNSITE_20211_mills_indels.hq.vcf.gz
+        ks20267indel: /storage1/fs1/jin810/Active/known_sites/BGA_KNOWNSITE_20267_known_indels.hq.vcf.gz
+    scratch1:
+        dbsnp_vcf: /scratch1/fs1/jin810/known_sites/resources-broad-hg38-v0-Homo_sapiens_assembly38.dbsnp138.vcf
+        onekgsnp_vcf: /scratch1/fs1/jin810/known_sites/1000G_phase1.snps.high_confidence.hg38.vcf
+        hapmap_vcf: /scratch1/fs1/jin810/known_sites/hapmap_3.3.hg38.vcf
+        omni_vcf: /scratch1/fs1/jin810/known_sites/1000G_omni2.5.hg38.vcf
+        ks19443dbsnp: /scratch1/fs1/jin810/known_sites/KNOWNSITE_19443_snvs.hq.vcf.gz
+        ks20211mills: /scratch1/fs1/jin810/known_sites/KNOWNSITE_20211_indels.hq.vcf.gz
+        ks20267indel: /scratch1/fs1/jin810/known_sites/KNOWNSITE_20267_indels.hq.vcf.gz
+
+######################
+# Pipeline Var:
+rawFQs_to_sampleFQ_R1:
+    threads: 1
+    mem: "2GB"
+    docker: "spashleyfu/ubuntu20_snakemake:samtools"
+    
+rawFQs_to_sampleFQ_R2:
+    threads: 1
+    mem: "2GB"
+    docker: "spashleyfu/ubuntu20_snakemake:samtools"
+
+unzip_fastq_R1:
+    threads: 2
+    mem: "8GB"
+    docker: "spashleyfu/ubuntu20_snakemake:samtools"
+    
+unzip_fastq_R2:
+    threads: 2
+    mem: "8GB"
+    docker: "spashleyfu/ubuntu20_snakemake:samtools"
+    
+fastq_pair:
+    threads: 8
+    mem: "256GB"
+    docker: "spashleyfu/debian_stretch_fastq_pair:snakemake"
+    
+gzip_repaired_fastq_R1:
+    threads: 2
+    mem: "8GB"
+    docker: "spashleyfu/ubuntu20_snakemake:samtools"
+
+gzip_repaired_fastq_R2:
+    threads: 2
+    mem: "8GB"
+    docker: "spashleyfu/ubuntu20_snakemake:samtools"
+
+QC_gatk_CollectInsertSizeMetrics:
+    threads: 24
+    mem: "24GB"
+    docker: "spashleyfu/ubuntu20_snakemake:gatk4_withR"
+
+QC_gatk_CollectAlignmentSummaryMetrics:
+    threads: 24
+    mem: "24GB"
+    docker: "spashleyfu/ubuntu20_snakemake:gatk4"
+
+plink_sexcheck3:
+    threads: 24
+    mem: "32GB"
+    docker: "sam16711/plink:latest"
+
+plink_sexcheck2:
+    threads: 24
+    mem: "32GB"
+    docker: "sam16711/plink:latest"
+
+plink_sexcheck1:
+    threads: 24
+    mem: "32GB"
+    docker: "sam16711/plink:latest"
+
+plink_kinship:
+    threads: 24
+    mem: "32GB"
+    docker: "sam16711/plink:latest"
+
+hail_vqsrVcf2mt:
+    threads: 24
+    mem: "48GB"
+    docker: "spashleyfu/hail_vep_gnomad:latest"
+
+hail_kinship:
+    threads: 24
+    mem: "72GB"
+    docker: "spashleyfu/hail_vep_gnomad:latest"
+
+tabix_bgzip_VQSR_VCF:
+    threads: 8
+    mem: "16GB"
+    docker: "spashleyfu/ubuntu20_snakemake:samtools"
+
+bgz_VQSR_VCF:
+    threads: 8
+    mem: "16GB"
+    docker: "spashleyfu/ubuntu20_snakemake:samtools"
+
+gatk_indexVCF:
+    threads: 24
+    mem: "128GB"
+    docker: "spashleyfu/ubuntu20_snakemake:gatk4"
+
+gatk_ApplyVQSR:
+    threads: 24
+    mem: "128GB"
+    docker: "spashleyfu/ubuntu20_snakemake:gatk4"
+
+gatk_VQSR:
+    threads: 24
+    mem: "128GB"
+    docker: "spashleyfu/ubuntu20_snakemake:gatk4"
+
+hail_VDS2VCF:
+    threads: 24
+    mem: "64GB"
+    docker: "spashleyfu/hail_vep_gnomad:latest"
+
+hail_joint_calling:
+    threads: 24
+    mem: "64GB"
+    docker: "spashleyfu/hail_vep_gnomad:latest"
+
+tabix_bgzip_gvcf:
+    threads: 8
+    mem: "16GB"
+    docker: "spashleyfu/ubuntu20_snakemake:samtools"
+
+bgzip_gvcf:
+    threads: 8
+    mem: "16GB"
+    docker: "spashleyfu/ubuntu20_snakemake:samtools"
+
+QC_gatk_CollectWgsMetrics:
+    threads: 24
+    mem: "24GB"
+    docker: "spashleyfu/ubuntu20_snakemake:gatk4"
+
+mosdepth_bammetrics:
+    threads: 8
+    mem: "16GB"
+    docker: "spashleyfu/ubuntu20_snakemake:samtools"
+
+unzip_regions_bed:
+    threads: 4
+    mem: "4GB"
+    docker: "spashleyfu/ubuntu20_snakemake:samtools"
+
+unzip_thresholds_bed:
+    threads: 4
+    mem: "4GB"
+    docker: "spashleyfu/ubuntu20_snakemake:samtools"
+
+get_info_from_regions_bed:
+    threads: 4
+    mem: "4GB"
+    docker: "spashleyfu/ubuntu20_snakemake:samtools"
+
+get_info_from_thresholds_bed:
+    threads: 4
+    mem: "4GB"
+    docker: "spashleyfu/ubuntu20_snakemake:samtools"
+
+collate_bam:
+    threads: 12
+    mem: "24GB"
+    docker: "spashleyfu/ubuntu20_snakemake:samtools_1.16"
+
+bam2fastq:
+    threads: 12
+    mem: "24GB"
+    docker: "spashleyfu/ubuntu20_snakemake:samtools"
+
+gzip_fastq_bam:
+    threads: 2
+    mem: "8GB"
+    docker: "spashleyfu/ubuntu20_snakemake:samtools"
+
+collate_cram:
+    threads: 12
+    mem: "24GB"
+    docker: "spashleyfu/ubuntu20_snakemake:samtools_1.16"
+
+cram2fastq:
+    threads: 12
+    mem: "24GB"
+    docker: "spashleyfu/ubuntu20_snakemake:samtools"
+
+gzip_fastq_cram:
+    threads: 8
+    mem: "8GB"
+    docker: "spashleyfu/ubuntu20_snakemake:samtools"
+
+pb_germline_FE:
+    threads: 24
+    nvidia_gpu: 2
+    mem: "320GB"
+    mem_limit: 300
+    docker: "spashleyfu/snakemake_parabricks:latest"
+
+pb_bammetrics:
+    threads: 16
+    nvidia_gpu: 1
+    mem: "128GB"
+    docker: "spashleyfu/snakemake_parabricks:latest"
+
+verify_bam:
+    threads: 6
+    mem: "16GB"
+    docker: "spashleyfu/ubuntu20_snakemake:verifyBamID"
+
+verify_bam2:
+    threads: 6
+    mem: "16GB"
+    docker: "spashleyfu/ubuntu20_snakemake:verifyBamID2"
+
+bam2cram:
+    threads: 12
+    mem: "24GB"
+    docker: "spashleyfu/ubuntu20_snakemake:samtools"
+
+index_cram:
+    threads: 12
+    mem: "24GB"
+    docker: "spashleyfu/ubuntu20_snakemake:samtools"
+
+md5CRAM:
+    threads: 4
+    mem: "8GB"
+    docker: "spashleyfu/ubuntu20_snakemake:samtools"
+
+tarCRAM:
+    threads: 4
+    mem: "8GB"
+    docker: "spashleyfu/ubuntu20_snakemake:samtools"
+
+
